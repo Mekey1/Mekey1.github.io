@@ -221,7 +221,7 @@ int main()
 </div>
 <p>最后通过调用别人写好的打印函数printf_s将这些数据打印出，同样的你用人家printf_s函数，就要遵守它的规范，它明确要求了在输出内容时%d就是按照十进制输出，%c是按照字符输出，%s是按照字符串输出，%f按照浮点输出，%x按照十六进制输出等。想要学习更多官方函数的使用规范，记得参考微软的官方文档：<a href="https://learn.microsoft.com/zh-cn/cpp/c-runtime-library/reference/printf-s-printf-s-l-wprintf-s-wprintf-s-l?view=msvc-170">printf_s、_printf_s_l、wprintf_s、_wprintf_s_l | Microsoft Learn</a></p>
 <p>所以通过上面的两个案例我们就对整个函数以及类型有了一个清晰的认识，如果我们现在就将这个程序直接生成后发布出去可以吗？答案是不行的，因为我们的程序是debug版，其中包含了大量的调试信息，被别有用心的人拿走会很容易看出我们写的东西的是什么。在VS的上面可以通过下列框修改为release版和相应的版本位数进而发布出去。</p>
-<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-05-18-16-12-image.png" alt="" /></p>
+<p><img src="https://mekey1.github.io/images/2025-02-05-18-16-12-image.png" alt="" /></p>
 <p>这里肯定又要问版本位数是什么？Windows主要把版本分为32位和64位，这里我们暂且认为版本的位数对于程序能够在内存中存放数据的最大值是有关系的。之前我们已经提到利用二进制对硬件很友好，而内存上的地址需要通过数进行标记，所以32位就是2的32次方个数，这样这些地址就全部被标记好了，但是如果程序想要更大的空间32位显然不够，所以才有了后来的64位。</p>
 <h2 id="125-循环结构"><a class="header" href="#125-循环结构">1.2.5 循环结构</a></h2>
 <p>这时我们一个基本的函数调用框架就已经搭建完成了，可是如果有时候我们想重复调用别人的函数接口怎么办呢？我总不能像下面这样做吧？</p>
