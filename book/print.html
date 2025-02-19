@@ -426,7 +426,237 @@ int main()
 <p>除了以上这些工具外还有很多好用的工具，如WireShark、Fakenet、Windbg等等，这些工具就不进行一一介绍了。大家可以直接在github网站中搜索浏览各种新鲜的工具，并阅读README文件尝试安装一下吧。</p>
 <h2 id="23-逆向cc"><a class="header" href="#23-逆向cc">2.3 逆向C/C++</a></h2>
 <h3 id="231-基本数据类型"><a class="header" href="#231-基本数据类型">2.3.1 基本数据类型</a></h3>
-<p>之前一章我们讲解C语法的时候有各种各样的类型，这一节我们将分析各种类型变量在汇编层面到底长什么样子。</p>
+<p>之前一章我们讲解C语法的时候有各种各样的类型，这一节我们将分析各种类型变量在汇编层面到底长什么样子，请将下面代码编写到VS中。</p>
+<pre><code class="language-c">#include"stdio.h"
+
+int main()
+{
+    unsigned int x1 = -10; //无符号数
+    int y1 = -10; //有符号数
+    char x2 = 97; //字符型
+    int y2 = 'a'; //整数型
+    bool x3 = false; //布尔型
+    bool y3 = true;
+    const int x4 = 10; //常量
+
+    return 0;
+}
+</code></pre>
+<p>并像在IDA中那样在如图所示下断点，并开启Windows本地调试器。</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-18-16-00-33-image.png" alt="" /></p>
+<p>随后在代码窗口处点击右键选择转到反汇编处，便可以清晰的看到我们的源代码最终在汇编层面是什么样子了。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-18-16-01-56-image.png" alt="" /></p>
+<p>无符号理论上不能为负数，这里我们赋值为-10，发现其与有符号整数-10最终结果是一致的，都是使用的补码形式0xFFFFFFF6h存储的。</p>
+<p>字符型我们赋值整数97和整数赋值‘a’结果也是一致的，不同的是char是使用的一个字节byte，int是4个字节dword，这也验证了之前我们说的类型只是一种解释，用于我们解释数据的含义。</p>
+<p>布尔类型是按照一字节0或1代替。</p>
+<p>常量类型我们发现其与其它类型并无区别，原因是其不可修改属性只是在编译层面，在编译时编译器会帮助我们检查代码中的常量类型，防止我们修改。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-18-16-34-20-image.png" alt="" /></p>
+<h3 id="232-浮点数"><a class="header" href="#232-浮点数">2.3.2 浮点数</a></h3>
+<p>在介绍浮点数汇编之前请先了解一下Streaming SIMD Extensions，在早期时处理器会使用X87指令集，我们可以理解成之前我们通过push pop操作栈的时候，浮点数的运算也有一个独属于它自己的栈，这个栈是用各种寄存器实现的。</p>
+<blockquote>
+<p>寄存器：可以理解成一种和内存条一样的物理介质，不过其存储的数据十分有限，主要就是用来对数据进行操作</p>
+</blockquote>
+<p>其中浮点数独特的汇编指令如下，详见微软白皮书开发手册<a href="https://www.intel.cn/content/www/cn/zh/content-details/835781/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html">英特尔® 64 和 IA-32 体系结构软件开发人员手册 合并卷：1、2A、2B、2C、2D、3A、3B、3C、3D 和 4 (intel.cn)</a></p>
+<p><img src="https://mekey1.github.io/images/2025-02-18-17-31-07-image.png" alt="" />接下来我们向上面一样，编写代码并编译查看其反汇编，相关汇编指令的含义以注释的方式写在后面，大家可以尝试自己编译查看反汇编。本节内容并无特别之处，主要就是了解其浮点数有特殊的指令，并在以后的逆向分析中对其能够灵活使用。</p>
+<pre><code class="language-c">    int x1 = 2;
+00FF5E25  mov         dword ptr [x1],2  //将2赋值给x1
+    float x2 = 3.1;
+00FF5E2C  movss       xmm0,dword ptr [__real@40466666 (01091EECh)]  //将3.1存储到xmm0寄存器中
+00FF5E34  movss       dword ptr [x2],xmm0  //将xmm0寄存器中的值存储到x2中
+    float y2 = 4.1;
+00FF5E39  movss       xmm0,dword ptr [__real@40833333 (01091F00h)]  //将4.1存储到xmm0寄存器中
+00FF5E41  movss       dword ptr [y2],xmm0  //将xmm0寄存器的值存储到y2中
+
+    x2 = (float)x1;
+00FF5E46  cvtsi2ss    xmm0,dword ptr [x1]  //将x1转换为浮点数并存入xmm0寄存器中
+00FF5E4B  movss       dword ptr [x2],xmm0  //将xxm0寄存器的值存储到x2
+    x2 += y2;
+00FF5E50  movss       xmm0,dword ptr [x2]  //将x2的值存储到xmm0寄存器中
+00FF5E55  addss       xmm0,dword ptr [y2]  //xmm0寄存器的值加上y2的值，将结果存储到xmm0寄存器中
+00FF5E5A  movss       dword ptr [x2],xmm0  //将xxm0寄存器的值存储到x2
+    x2 -= 1.3;
+00FF5E5F  cvtss2sd    xmm0,dword ptr [x2]  //将x2转换为64位的双精度浮点数，并放入xxm0寄存器中
+00FF5E64  subsd       xmm0,mmword ptr [__real@3ff4cccccccccccd (01091EF0h)]  //xxm0寄存器的值减去1.3，将结果放入到xmm0寄存器中
+00FF5E6C  cvtsd2ss    xmm0,xmm0  //将64位双精度的浮点数xmm0中的值转换为32位的单精度浮点数，并将结果保存到xmm0中
+00FF5E70  movss       dword ptr [x2],xmm0  //将xmm0寄存器的值存储到x2中
+</code></pre>
+<h3 id="233-结构体与联合体"><a class="header" href="#233-结构体与联合体">2.3.3 结构体与联合体</a></h3>
+<p>接下来我们学习结构体与联合体汇编，这里需要延伸一个内存对齐的概念。内存对齐是为了提高内存访问速度的一种操作，具体我们可以这样理解，每次内存访问的时候根据不同的硬件设备按照2字节、4字节、8字节等方式进行读取的，所以内存在寻找数据的时候也是按照这样倍数的地址去寻找的数据。</p>
+<p>如果你将一个4字节数据放在0-3地址上，它访问0地址就直接取出来了，但是如果放到1-4地址，这样CPU取的时候就需要取两次，先取1-3地址再取4地址，最后拼接成目标的4字节数据。通过对齐可以减少CPU的访问内存次数，进而提高内存访问速度。</p>
+<p>了解了内存对齐的概念，我们还要清楚在我们的编译器它会在编译的时候自动的为我们加入了一些对齐的格式，比如我们要编译32位的程序，编译器就自动的给我们对齐的时候安照4字节，我们需要通过一些命令进行修改。接下来请写出下面的代码：</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+
+#pragma pack(1) //告诉编译器按照1字节对齐
+typedef struct _Test
+{
+    char x1;
+    int x2;
+    char x3[10];
+}Test;
+
+int main()
+{
+    Test array1 = { 0 };
+    Test array2 = { 0 };
+    array1.x1 = 'a'; 
+    array1.x2 = 123;
+    strcpy(array1.x3, "abc");
+
+    array2 = array1; //结构体对结构体赋值
+
+    return 0;
+}
+</code></pre>
+<p>通过在return 0处下断点调试到之前反汇编界面，然后点击 调试-&gt;窗口-&gt;内存-&gt;内存1 到如下界面，并在内存窗口处填写&amp;array1查询其内存数据。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-10-55-15-image.png" alt="" /></p>
+<p>我们可以看到内存数据的排列顺序也与我们定义的相同，先是1个字节ASCII的‘a’，后面是十六进制的123，最后是一个字符数组“abc”。结构体对结构体的赋值也是通过成员对成员的依次赋值。接下来请将下面代码写下，按照上面的方式再查看一下实际情况。</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+
+typedef union _Test
+{
+    int x1;
+    int x2;
+    int x3;
+}Test;
+
+int main()
+{
+    Test array1 = { 0 };
+    Test array2 = { 0 };
+    
+    array1.x1 = 16;
+    array1.x2 = 32;
+    array1.x3 = 48;
+
+    array2 = array1; //联合体对联合体赋值
+
+    return 0;
+}
+</code></pre>
+<p>通过反汇编查看，联合体实际上只占一块内存，只是对该内存的命名不同，可以叫x1也可以叫x2、x3，实际在操作时都是操作一个整型变量，自然也是值传递。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-11-28-58-image.png" alt="" /></p>
+<h3 id="234-多维数组与字符串"><a class="header" href="#234-多维数组与字符串">2.3.4 多维数组与字符串</a></h3>
+<p>数组和字符串的案例如下，请将下面代码写出并像上面那样调试。</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+
+int main()
+{
+    int x1[2][3] = { {1, 2, 3}, {4, 5, 6} };
+    int x3[6] = { 1,2,3,4,5,6 };
+    int(*x2)[3] = x1;
+
+    const char* y1 = "abcd";
+    char y2[] = "dcba";
+    y1 = y2;
+
+    return 0;
+}
+</code></pre>
+<p>我们可以清晰的看到多维数组其实底层与一维数组没有什么区别，在赋值的时候实际就是按照一维数组的方式去赋值的，而数组的名称还可以当成指针一样去赋值给其它的变量。</p>
+<p>字符串赋值与字符数组赋值区别在于字符串赋值是直接将一个内部定义好的字符串进行赋值，而字符数组赋值是进行单一的字符赋值，最后在其末尾补0达到形成字符串赋值的效果，同样的字符串的名称也可以当做指针一样赋值给其它的变量。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-12-25-05-image.png" alt="" /></p>
+<p>本节的主要内容是希望大家在以后的编程当中对数据有个清晰的认识，操作数据时要有内存思维，这样在以后的逆向当中才不会迷失在茫茫数据当中，下一节我们将开始对C语言的各种语法结构进行分析。</p>
+<h3 id="235-条件判断"><a class="header" href="#235-条件判断">2.3.5 条件判断</a></h3>
+<p>这节将对C语言的条件判断做逆向分析，请将下面的代码写入VS中，并在合适的位置下上断点进行调试。</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+
+int main()
+{
+    int x = 1;
+
+    if (x &gt; 0)
+    {
+        printf("x &gt; 0 \n");
+    }
+    else if (x == 0)
+    {
+        printf("x = 0 \n");
+    }
+    else
+    {
+        printf("x &lt; 0 \n");
+    }
+
+    switch (x)
+    {
+    case 0:
+    {
+        printf("x = 0\n");
+        break;
+    }
+    case 1:
+    {
+        printf("x = 1\n");
+        break;
+    }
+    case 2:
+    {
+        printf("x = 2\n");
+        break;
+    }
+    default:
+    {
+        printf("default\n");
+    }
+    }
+
+    switch (x)
+    {
+    case 0:
+    {
+        printf("x = 0\n");
+        break;
+    }
+    case 1:
+    {
+        printf("x = 1\n");
+        break;
+    }
+    case 2:
+    {
+        printf("x = 2\n");
+        break;
+    }
+    case 3:
+    {
+        printf("x = 3\n");
+        break;
+    }
+    case 4:
+    {
+        printf("x = 4\n");
+        break;
+    }
+    case 5:
+    {
+        printf("x = 5\n");
+        break;
+    }
+    case 6:
+    {
+        printf("x = 6\n");
+        break;
+    }
+    default:
+    {
+        printf("default\n");
+    }
+    }
+
+    return 0;
+}
+</code></pre>
+<p>该代码一共有三部分，前面是对if-else条件语句进行分析，后面是对switch-case进行分析。其中if-else语句相对较为简便，只是判断数据和目标的值，进而选择跳转的位置。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-14-40-01-image.png" alt="" /></p>
+<p>switch-case语句在case分支较为少时与if-else类似，都是单个进行判断数据是否与目标值相等，进而选择跳转执行不同的分支。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-14-41-35-image.png" alt="" /></p>
+<p>但在case分支数量变多时，编译器会自动生产一张内存表，该表用于记录各分支的偏移，进而通过一个公式实现目标分支的定位。</p>
+<p><img src="https://mekey1.github.io/images/2025-02-19-14-44-17-image.png" alt="" /></p>
+<h3 id="236-循环结构"><a class="header" href="#236-循环结构">2.3.6 循环结构</a></h3>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第三章"><a class="header" href="#第三章">第三章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第四章"><a class="header" href="#第四章">第四章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第五章"><a class="header" href="#第五章">第五章</a></h1>
