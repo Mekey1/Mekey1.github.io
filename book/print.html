@@ -525,7 +525,7 @@ int main()
 {
     Test array1 = { 0 };
     Test array2 = { 0 };
-    
+
     array1.x1 = 16;
     array1.x2 = 32;
     array1.x3 = 48;
@@ -657,6 +657,179 @@ int main()
 <p>但在case分支数量变多时，编译器会自动生产一张内存表，该表用于记录各分支的偏移，进而通过一个公式实现目标分支的定位。</p>
 <p><img src="https://mekey1.github.io/images/2025-02-19-14-44-17-image.png" alt="" /></p>
 <h3 id="236-循环结构"><a class="header" href="#236-循环结构">2.3.6 循环结构</a></h3>
+<p>接下来将对C语言的循环结构进行分析，循环结构大致分为三种，for循环、while循环、do-while循环，请将下面的代码写下并调试分析：</p>
+<pre><code class="language-c">#include"stdio.h"
+
+int main()
+{
+    //while循环
+    int test = 0;
+    while (test &lt; 10)
+    {
+        test++;
+    }
+    //do-while循环
+    test = 0;
+    do
+    {
+        test++;
+    } while (test &lt; 10);
+    //for循环
+    for (test = 0; test &lt; 10; test++)
+    {
+        test += 1;
+    }
+
+    return 0;
+}
+</code></pre>
+<p>while循环结构开始就先进行比较是否执行循环体，如果符合条件就进入循环体，并在执行完循环体后向上跳转再次判断。</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-19-16-11-27-image.png" alt="" /></p>
+<p>do-while循环结构是先执行一次循环体，随后再判断是否执行循环体。</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-19-16-19-18-image.png" alt="" /></p>
+<p>最后for循环是先执行表达式1，随后判断是否执行循环体，并在每次循环的过程中执行一次表达式3。</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-19-16-21-02-image.png" alt="" /></p>
+<h3 id="237-函数"><a class="header" href="#237-函数">2.3.7 函数</a></h3>
+<p>这节将对C语言的函数进行逆向分析，这一节也将是最重要的一节，因为在后续当中我们将经常与函数进行打交道。首先要了解的就是函数的调用约定，函数在调用时堆栈的操作有很多种，于是就诞生了像stdcall、fastcall、cdecl、thiscall等这些调用约定。请将下面的代码写下并调试，并尝试切换各种调用约定进行查看。</p>
+<pre><code class="language-c">#include"stdio.h"
+
+//int __stdcall add(int x, int y) //stdcall调用
+
+int add(int x, int y) //cdecl调用
+{
+    int z = 0;
+
+    z = x + y;
+
+    return z;
+}
+/* nacked call调用
+__declspec(naked) int  add(int a, int b)
+
+{
+    __asm mov eax, a
+    __asm add eax, b
+    __asm ret
+
+}
+*/
+
+int main()
+{
+    int x = 1, y = 2, z = 0;
+
+    z = add(x, y);
+
+    return 0;
+}
+    return 0;
+}
+</code></pre>
+<p>我们可以清晰的看到函数的调用首先是通过push将参数压入栈中，顺序是从右往左依次入栈，随后通过调用call进入到目标函数中，后续通过esp+8的方式将之前的压栈的esp进行恢复。</p>
+<blockquote>
+<p>call 目标地址 可以理解为是push eip和jmp 目标地址，所以在此栈中保存有相应的下一行汇编eip地址</p>
+</blockquote>
+<p><img src="https://Mekey1.github.io/images/2025-02-19-16-58-50-image.png" alt="" /></p>
+<p>在目标函数中首先会将ebp进行压栈保存，然后更新新的栈底，在此新的栈中开辟一段空间赋值为0xCC，随后进行一系列的函数体调用，最后通过pop恢复堆栈，ret回到相应的函数调用处。</p>
+<blockquote>
+<p>ret指令可以理解成是pop eip，可是实际并没有pop eip这个指令，所以执行这个指令看到的现象就是eip被修改成原来进入函数时的eip下一行</p>
+</blockquote>
+<p><img src="https://Mekey1.github.io/images/2025-02-19-16-59-58-image.png" alt="" /></p>
+<p>以上就是默认不加修饰调用约定时的一个函数调用情况，可以看出默认使用的是cdecl调用约定，当使用stdcall调用约定时，栈的恢复操作将在调用的函数中。当使用裸函数时，我们会发现在该被调用函数内部编译器不会再为我们添加各种代码，一般这种情况是为了自己实现汇编部分。</p>
+<p>到此整个C语言的逆向就结束了，本节主要是培养大家对汇编代码的理解和高级语言之间的联系，所使用的也还只是debug调试版本，所以在初学阶段非常容易逆向，大家可以尝试将上述的代码转换为release版本，并再次尝试对其分析，下一节我们将开始对C++语言的逆向分析。</p>
+<h3 id="238-c类"><a class="header" href="#238-c类">2.3.8 C++类</a></h3>
+<p>在介绍C++类的时候首先要了解C++与C语言的特性区别是什么？相信大家都听说过C是面向过程，C++是面向对象，其本质就是编写代码时，使用C语言很多时候是为了实现功能过程而编写，所以叫面向过程。而在使用C++时，因为存在类的概念，可以将很多属于它的功能放在一起形成模块化，这样在代码实现及后续使用时更加方便，所以也叫面向对象。</p>
+<p>在讲解C++类可以类比我们学习C语言时的结构体，C++的类和结构体高度相似，可以理解成是其结构体功能的衍生。在声明的时候结构体用struct关键字，而C++的类使用的是class关键字，我们把下面的代码编写一下：</p>
+<pre><code class="language-c">#include"stdio.h"
+
+class Base
+{
+public:
+    //构造函数
+    Base(int x, int y)
+    {
+        this-&gt;x = x;
+        this-&gt;y = y;
+        this-&gt;z = z;
+    }
+    //成员函数
+    void InitData(int x, int y)
+    {
+        this-&gt;x = x;
+        this-&gt;y = y;
+    }
+    //函数重载
+    void InitData(int x, int y, int z)
+    {
+        this-&gt;x = x;
+        this-&gt;y = y;
+        this-&gt;z = z;
+    }
+    //运算符重载
+    void operator++()
+    {
+        this-&gt;x++;
+        this-&gt;y++;
+        this-&gt;z++;
+    }
+    //输出成员内容
+    void Show()
+    {
+        printf("x=%d, y=%d, z=%d\n", this-&gt;x, this-&gt;y, this-&gt;z);
+    }
+private:
+    int x;
+    int y;
+    int z;
+};
+
+int main()
+{
+    //调用构造函数对类成员进行赋值
+    Base base(1, 2);
+
+    base.InitData(0, 0);
+    base.InitData(1, 2, 3);
+    base++;
+    base.Show();
+
+    return 0;
+}
+</code></pre>
+<p>可以看到之前我们写的很多的函数全部放到了class当中了，而其有两个特殊的单词private和public，这些其实是类的访问权限。我们把我们的类对象当成是一个小房子，里面有很多的函数和成员变量，有些东西我们只希望自己使用就把它放到private中，有些希望所有人都可以使用，就把它放到public当中，当然还有protected权限，这个是在后面讲解派生类时用到的一种权限，这里只做了解。其protected权限是可以在本类和派生类中使用，有点像传家宝，只能本类和继承的子类等使用，其余别的都不可使用。</p>
+<p>将上面代码编译调试，观察到当我们调用类的一些成员函数的时候，传参会多出来一个ecx，其实这个就是之前我们讲函数调用时的thiscall调用约定，通过传入目标类的地址，然后增加相应的偏移进而就可以对类成员进行访问了。</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-20-14-01-59-image.png" alt="" /></p>
+<p>所以到此我们就可以看出来，在底层汇编根本就不存在什么私有成员，类的成员函数就是一个普通的函数地址，运算符重载也不过只是一个函数而已。以上这些C++的语法设计等等，都不过只是在编译时做的检查而已。我们再看一个C++的模板，模板的出现是为了应对不同的参数类型导致需要编写多个函数，请写出下面的代码并编译调试：</p>
+<pre><code class="language-c">#include"stdio.h"
+
+template &lt;typename T&gt;
+class Base
+{
+public:
+    void Init(T x, T y)
+    {
+        this-&gt;x = x;
+        this-&gt;y = y;
+    }
+private:
+    T x;
+    T y;
+};
+
+int main()
+{
+    Base&lt;int&gt; ibase;
+    Base&lt;char&gt; cBase;
+
+    ibase.Init(4,5);
+    cBase.Init('a', 'b');
+    return 0;
+}
+</code></pre>
+<p>模板的使用是通过template关键字声明的，在使用的时候通过在尖括号中写入相应的类型，这样上述所有使用到的地方都会被替换成该类型。那接下来我们就看看这个模板在底层到底是怎么实现的吧，通过编译调试后如下：</p>
+<p><img src="https://Mekey1.github.io/images/2025-02-20-15-55-25-image.png" alt="" /></p>
+<p>我们发现模板其实也不过只是在我们编写代码的时候一种语法而已，实际等编译完后就形成了不同的函数。</p>
+<h3 id="239-构造函数与析构函数"><a class="header" href="#239-构造函数与析构函数">2.3.9 构造函数与析构函数</a></h3>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第三章"><a class="header" href="#第三章">第三章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第四章"><a class="header" href="#第四章">第四章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第五章"><a class="header" href="#第五章">第五章</a></h1>
