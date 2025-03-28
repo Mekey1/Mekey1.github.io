@@ -830,10 +830,157 @@ int main()
 <p><img src="https://Mekey1.github.io/images/2025-02-20-15-55-25-image.png" alt="" /></p>
 <p>我们发现模板其实也不过只是在我们编写代码的时候一种语法而已，实际等编译完后就形成了不同的函数。</p>
 <h3 id="239-构造函数与析构函数"><a class="header" href="#239-构造函数与析构函数">2.3.9 构造函数与析构函数</a></h3>
+<p>构造函数与析构函数是C++类中一个自动对创建类和清除类时要调用的函数，请将下面的代码编译并调试：</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+
+class Base
+{
+public:
+    Base()
+    {
+        Test = (char*)malloc(10);
+        memset(Test,0,10);
+        strcpy_s(Test,4,"123");
+    }
+    
+    void BasePrint()
+    {
+        printf("Test:%s\n",Test);
+    }
+
+    ~Base()
+    {
+        printf("Base free\n");
+        if (Test)
+        {
+            free(Test);
+        }  
+    }
+private:
+    char* Test;
+};
+
+int main()
+{
+    Base base1;
+
+    base1.BasePrint();
+
+    return 0;
+}
+</code></pre>
+<p>构造函数在编写时只需要在类的成员函数使其名称与类名相同即可，析构函数就是在构造函数的样式前再加个~符号。通过编译运行可以观察到，构造函数实际上就是编译器在我们创建一个类时替我们调用了一下，析构函数就是在结束时调用一下。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-21-14-17-24-image.png" alt="" /></p>
+<h3 id="2310-虚函数继承多态"><a class="header" href="#2310-虚函数继承多态">2.3.10 虚函数、继承、多态</a></h3>
+<p>这节将对C++中最容易搞混淆的几个概念进行阐述，请将本节的案例代码在VS中写下并进行编译调试：</p>
+<pre><code class="language-c">#include"stdio.h"
+#include&lt;Windows.h&gt;
+//基类
+class Base
+{
+public:
+    Base()
+    {
+        x = 1;
+        y = 2;
+    }
+    void printf1()
+    {
+        printf("printf1\n");
+    }
+    virtual void printf2()
+    {
+        printf("virtual printf2\n");
+    }
+    virtual void printf3()
+    {
+        printf("virtual printf3\n");
+    }
+    virtual void printf4()
+    {
+        printf("virtual printf4\n");
+    }
+private:
+    int x;
+    int y;
+};
+//派生类1
+class Derived1 : public Base 
+{
+public:
+    void printf2() override 
+    {
+        printf("Derived1 printf2\n");
+    }
+};
+//派生类2
+class Derived2 : public Base
+{
+public:
+    void printf2() override
+    {
+        printf("Derived2 printf2\n");
+    }
+};
+
+int main()
+{
+    
+    Base base1;
+    Derived1 base2;
+    base1.printf1();
+    base1.printf2();
+    base2.printf1();
+    base2.printf2();
+    
+    Base* base3;
+    base3 = new Derived1();
+    base3-&gt;printf2();
+    delete base3;
+    
+    base3 = new Derived2();
+    base3-&gt;printf2();
+    delete base3;
+
+    return 0;
+}
+</code></pre>
+<p>在该案例中，我们可以看到所有的对象在构造时会调用它的构造函数，并且派生类的对象会将基类中的虚函数进行重写，最终调用属于派生类对象重写的函数。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-25-11-53-34-image.png" alt="" /></p>
+<blockquote>
+<p>派生类对象：就是通过继承的方式得到基类的属性，像Derived1、Derived2这样都属于派生类</p>
+<p>基类对象：就是最初的类对象，像案例中就是Base</p>
+</blockquote>
+<p>然而这里我们可能会有疑问，因为我们并没有对Derived1实现构造函数，那么这里的构造函数调用的到底是谁呢？请将地址进行切换到如下所式，会发现其实调用的还是基类的构造函数。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-25-12-00-04-image.png" alt="" /></p>
+<p>在寻找地址的过程中可能会遇到这种情况，就是大量的jmp指令，这个请不用担心，这是我们编译器开启的增量链接。为了防止每次编译的时候都要重新生成一个可执行文件，这里通过增加一个跳转表，如果代码只进行了少量修改，只需要修改jmp跳转的地址即可。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-25-12-02-39-image.png" alt="" /></p>
+<p>这里我们肯定有一个疑问，为什么派生类继承基类以后就把基类的虚函数给重写了，底层的原理是什么呢？我们继续追寻内存地址&amp;base1和&amp;base2，可以发现其内存首部又存放了一个地址，其实这个地址是一个保存着所有虚函数的地址的表，简称虚表。所有的虚函数调用都从这张表里来的，因为继承的原因导致派生类将基类的这张表给复制了一份过来，再由于是进行了虚函数重新，又将复制过来的这个表的printf2函数进行替换，这样就形成了上面所说的情况，其本质还是函数地址的替换。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-25-12-13-09-image.png" alt="" /></p>
+<p>当使用指针的方式调用派生类的函数时，可以发现其本质是在寻找派生类对象的虚表中的函数，然后对其进行的调用。而所谓的多态就是在继承的时候对该虚表中的函数指针进行了替换，从而实现像上面案例中同样使用base3指针调用printf2函数却发生不同的情况。</p>
+<p><img src="C:%5CUsers%5CAdministrator%5CAppData%5CRoaming%5Cmarktext%5Cimages%5C2025-02-25-14-10-34-image.png" alt="" /></p>
+<h3 id="2311-多重继承与多继承"><a class="header" href="#2311-多重继承与多继承">2.3.11 多重继承与多继承</a></h3>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第三章"><a class="header" href="#第三章">第三章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第四章"><a class="header" href="#第四章">第四章</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第五章"><a class="header" href="#第五章">第五章</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="第六章"><a class="header" href="#第六章">第六章</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="第六章-思想篇"><a class="header" href="#第六章-思想篇">第六章 思想篇</a></h1>
+<p>当我们从小到大学习了各种技能和知识 ，步入社会时我们依旧大部分人会直接去打工，我们会认为这是人生的第一步，后面慢慢培养技能就可以走向自主创业等。但实际现象可以看到并非如此，首先拥有这种想要将生产资料握在自己手里的思想本身就难能可贵了，可在一种被极度消耗的情况下，我们的恐惧感油然而生，这种恐惧感来源于多方面，如上级的任务压迫PUA、同事之间的勾心斗角等等，以及对未来的迷茫和不确定性。这些方面共同造就了我们之前认为学习技能而后出去自主创业或者做什么其它事的这种想法被一点点磨灭，它会使我们认为社会是固定的（你所处的位置能力资产等等），运用马克思的哲学理解就是形而上学的。</p>
+<p>这显然是不正确的，以一个最普遍的例子，我们的国家是以中国共产党为执政党，是无产阶级的。如果事物的发展本质是固定的，那么必然会出现像这种谁强谁就永远压迫谁，这是一种思想上的禁锢。可是实际上呢，我们推翻了我们认为的不可能，这就是希望，这就是星星之火可以燎原。</p>
+<p>前人是伟大的，他们不畏艰险勇于斗争，可是目前有太多利用这种前人的伟大能力借机谋事。他们善于伪装，跟我们似乎完全一样，可从事实的角度上可以判别出我们又被其利用。由此可以得出其结论，其与我们是完全不一样的，否则我们与他们之间是没有利用关系的，只有合作关系。所以这其中充斥着某种力量和能力是我们不具备，或者说这类人是天生的。</p>
+<p>但是如果思维模式是认可这种文化或事实，那我们不就又回到了社会是固定的这个局面了嘛，很多人对社会的理解就是这样：经历过了一些事就认为自己所经历的必然是有用的，固然当发觉某些事情是如此之困难时，便将一切归到神学文化当中，这是一种解脱和心灵上的救赎，但我依然认为从事实的本质上并没有改变，我不对其做出任何对与错的评价，事实的推动一定由结果去决定。</p>
+<p>我相信我上面所描述的看似都很有道理，但是却没有给出一个合理的解释，这种情况是极其不负责任的，请允许我在后续当中对其做出合理解释，目前因各种因素我未能参透其原因。所以下面将会不时将我想到的记录下来，可能有时只有一两句话，但我相信日积月累，滴水石穿。</p>
+<blockquote>
+<p>社会是结果论的，对与错是掌握权力人的解释权。</p>
+<p>他们的嚣张跋扈是我们反击的机会，因为他们觉得已经达到了自己想要的，毫无居安思危之道。</p>
+<p>他们擅长察言观色，利用他人的能力为其做事，我们要清楚这点，做好防备。</p>
+<p>所有社会上的人和事都是用来给我们练级的。</p>
+<p>看透别人的心思是一种能力，但是遇到心思缜密的人，看透他的心思反而不是一件好事，有点像网络安全中的蜜罐，这是陷阱，我们需要避免去猜测心思缜密之人的心思。</p>
+<p>可以把人比做大模型，其经历的事情和学到的知识就是语料，导致他慢慢的被训练成一个个的样子，所以并非那些人是我们想象中无比厉害，而是道不同，如果同样拥有相应的外界刺激人与人在个体同等的条件下是不会有太大差别的。</p>
+<p>强者具备很深的共鸣力，其共鸣力能够实现听懂学习到更多东西。</p>
+<p>金钱是各资源物质的一个大统一标准。</p>
+<p>很多文科他们目前就业比较尴尬的局面，很大程度是因为很多文学事物通过人在社会上总结的经验已验证了事实，而文学通过不断深入研究通过理论的依据进行证明，最后发现证明的结果就是现在社会上人所处的现状，这就好比一个蒙对题和一个会算题的人，结果一致，但是后者所耗费的时间是巨大的。</p>
+</blockquote>
 
                     </main>
 
